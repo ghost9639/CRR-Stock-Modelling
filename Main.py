@@ -3,7 +3,7 @@
 import math
 from decimal import *
 import stats
-import numpy
+import numpy as np
 
 def input_data (S_0, r, sigma, T, K, M):  
     """Validates variable entries for Binomial Model
@@ -116,41 +116,37 @@ def compute_binomial_algorithm1_2 (S_0, r, sigma, T, K, M):
         anti_q = 1 - q
 
         if  q <= 0 or anti_q <= 0:
-            print("Model has arbitrage")
+            print("Model has arbitrage,")
             _fail = True 
         
     if _fail:
         print("Invalid Entry, please amend arguments.")
         return -1
     
-    # We now know that there is no arbitrage and all variables are acceptable 
+    # We now know that there is no arbitrage and all variables meet requirements
 
-    V = [[0 for i in range(M+1)] for j in range (M+1)] # list comprehension for speed
+    V = [[0 for i in range(M)] for j in range (M)] # list comprehension for speed
 
     for j in range (M):
         
         S = u**j * d**(M-j) * S_0
-
+        
         if K > S:
-
             V[j][M-1] = K - S
         else:
             V[j][M-1] = 0
 
-    for i in range (M-1, -1, -1):
-
+    for i in range (M-2, -1, -1):
         for j in range (i):
-
-            S = u**j * d**(i-j) * S_0
             V[j][i] = math.exp(-r * delta_t) * (q * V[j+1][i+1] + (1-q) * V[j][i+1])
 
+    for i in range (M-1, -1, -1):
+        print(V[i][2])
     return(V[0][0])            # since put options >0 at base of tree
 
-    
 
 if __name__ == "__main__":
 
-    print(input_data(3, 1, 2, 5, 2, 5))
     print(compute_binomial_algorithm1_2(100, 0.025, 0.3, 1.5, 90, 200))
     print(compute_binomial_algorithm1_2(10, 0.06, 20, 1, 14, 5))
      
