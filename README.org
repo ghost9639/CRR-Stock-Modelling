@@ -1,0 +1,18 @@
+#+title: Binomial Approximations to the Black-Scholes
+#+author: R
+
+* Multiple Binomial European Put Implementations
+
+1. Basic back-calculation model,
+2. Optimised version using numpy (O(N^{-2})),
+3. Richardson Extrapolation.
+
+Building up from a basic European put binomial market model, this project develops more optimised functions with increasing efficiency. Additionally, the Black-Scholes model is directly implemented for comparison, and the Richardson extrapolation is used for an efficient approximation with minimal porcelain code. Full [[file:docs/Assessment1.pdf][documentation]] of the process available.
+
+[[file:docs/images/Figure_7.png]]
+
+[[file:docs/images/Figure_8.png]]
+
+* Unit Testing, Benchmarking, and Reproducibility
+
+Extensive use of [[file:testing.py][pytest]] to ensure functions are robust to internal alterations and changes to input validation logic. Additionally used to validate approximations remaining within reasonable bounds. Use of Python time library to benchmark functions. Nix flake including pytest attached for easy reproducibility.

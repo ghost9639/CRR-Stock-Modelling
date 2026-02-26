@@ -8,14 +8,6 @@ auto-save-list
 tramp
 .\#*
 
-__pycache__
-.pytest_cache
-.venv
-docs
-tmp
-*.pdf
-*.org
-
 # my api-keys :p
 id_ed25519
 
