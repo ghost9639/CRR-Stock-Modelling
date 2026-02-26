@@ -7,7 +7,7 @@
 2. Optimised version using numpy (O(N^{-2})),
 3. Richardson Extrapolation.
 
-Building up from a basic European put binomial market model, this project develops more optimised functions with increasing efficiency. Additionally, the Black-Scholes model is directly implemented for comparison, and the Richardson extrapolation is used for an efficient approximation with minimal porcelain code. Full [[file:docs/Assessment1.pdf][documentation]] of the process available.
+Building up from a basic European put binomial market model, this [[file:Main.py][project]] develops more optimised functions with increasing efficiency. Additionally, the Black-Scholes model is directly implemented for comparison, and the Richardson extrapolation is used for an efficient approximation with minimal porcelain code. Full [[file:docs/Assessment1.pdf][documentation]] of the process available.
 
 [[file:docs/images/Figure_7.png]]
 
