@@ -1,224 +1,120 @@
 #+title: Computations in Finance Assessment 1
-#+author: R
+#+author: 201605543
 #+latex_class: article-lua
 
 \tableofcontents
 \flushleft
 
-* Question 1
+* Testing a Binomial Market Model
 
-We have to implement a function that inputs the typical inputs of a path independent binomial market for a European option. In this case, =S_0, r, sigma, T, K, M=. These variables all need to be positive integers or floats, and M specifically must be greater than or equal to 1. We also need to ensure that booleans are not allowed through, since these are treated as integers by Python. After validating that all inputs are numerical and within bounds, we can check for the presence of arbitrage (for continuously compounded data). In order to benefit the user, it is best that every bad entry has a specific warning, instead of the user being forced to retry the module for every bad input. As such, we use basic if checks and a =_fail= check that returns an error code =-1=.
+If we want to price a path independent European put option, the industry typical approach is to obtain an arbitragy free price under the Black-Scholes model. One method of approximating this computationally is by using an adjusted binomial tree stock price model like the Cox-Ross-Rubenstein (CRR) model. This can be made relatively simply by obtaining final values for each unique possible outcome and back calculating for the initial price. In order to test our adjusted CRR function, it is useful to compare the output of the function to the Black-Scholes model itself. To directly calculate the price of a put under the Black-Scholes model, we can use the formulas:
 
-#+caption: =input_data= function 
-#+begin_src python :results output  :exports both
-  def input_data (S_0, r, sigma, T, K, M): 
-    """Validates variable entries for Binomial Model
-    Expects initial price, interest rate, volatility,
-    time till maturity, strike price, and number of
-    time periods."""
-    _fail = False 
-    
-    if not (isinstance(S_0, (int, float)) and not isinstance(S_0, bool)) or (S_0 <= 0):
-        print ("Initial stock price must take a positive numerical value,")
-        _fail = True 
-        
-    if not (isinstance(r, (int, float)) and not isinstance(r, bool)) or (r <= 0):
-        print ("Interest rate must take a positive numerical value,")
-        _fail = True
-        
-    if not (isinstance(sigma, (int, float)) and not isinstance(sigma, bool)) or (sigma <= 0):
-        print ("Volatility can only be a positive numerical,")
-        _fail = True
-        
-    if not (isinstance(T, (int, float)) and not isinstance(T, bool)) or (T <= 0):
-        print ("Time period must be some positive multiple of 1,")
-        _fail = True
-        
-    if not (isinstance(K, (int, float)) and not isinstance(K, bool)) or (K <= 0):
-        print ("An option can only have a positive numerical value,")
-        _fail = True
-        
-    if not (isinstance(M, (int, float)) and not isinstance(M, bool)) or (M < 1):
-        print ("Must be at least one time period,")
-        _fail = True
+\[P_t = K e^{-rT} \cdot \Phi (-d_2) - S_0 \cdot \Phi (-d_1) \]
 
-    if _fail:
-        print("Invalid Entry, please amend arguments.")
-        return -1
+Where:
 
-    # Handling arbitrage 
-    delta_t = math.exp(math.log(T) - math.log(M))
-    cont_rate = math.exp(r * delta_t)
+\[d_1 = \frac{\log (S_0 / K) + (r + \sigma^2 / 2)T}{\sigma \sqrt{T}} \]
+\[d_2 = d_1 - \sigma \sqrt{T} \]
 
-    u = 1 + sigma
-    d = 1 - sigma 
+And \Phi is the standard normal cumulative distribution function. For an example test, we can use the inputs:
+1. Strike Price (/K/) of £90,
+2. 18 months till maturity $(T=1.5)$,
+3. An initial price (/S_0/) of £80,
+4. A volatility (\sigma) of 30%,
+5. A risk-free rate (/r/) of 2.5%,
+6. 50 iterations $(M=50)$.
 
-    if  cont_rate <= d or cont_rate >= u:
-      print("Model has arbitrage")
-      print("Invalid Entry, please amend arguments")
-      return -1
-          
-    return 0
+We can write a basic Python function that calculates the exact value and then compares it to the output of our basic binomial modeller. Doing this, we get the output:
 
-  print(input_data(4, 5, 4, 5, True, 1))
+#+begin_src 
+Price using equation: 15.777390569960389, 
+Price using binomial model 15.767610655878515 
+Error: 0.000619868921828804%
 #+end_src 
 
+Implying that our model is accurate enough for a 2 digit decimal place currency. Unit testing with other known outputs shows that the approximation is reasonably accurate:
 
-#+RESULTS:
-#+caption: Output of =input_data= function 
-: An option can only have a positive numerical value,
-: Invalid Entry, please amend arguments.
-: -1
+#+begin_src
+    import pytest
+    from Main import compute_binomial_algorithm1_2
 
-In order to test this concretely, I also specified a set of pytest unit tests that run on =input_data= specifically, including cases with multiple bad entries and arbitrages (Listing [[listing::utinput_data]]). These all passed, suggesting the function effectively guards against inputs that would lead to undefined behaviour or a crash at runtime. Since Python lacks switch statements, the function cannot be optimised much further, but using the Python =Math= library and the properties of exponents stabilises the calculation of $\Delta t$ since =M= could be very large while =T= could be small.
+    known_output = [
+      [100, 0.025, 30, 1.5, 90, 200, 7.951759601479267],
+      [10, 0.06, 20, 1, 14, 5, 3.2719288406522917],
+      [100, 0.05, 30, 0.5, 105, 1280, 9.805954112130756],
+    ]
 
-#+caption: Unit tests on =input_data=
-#+name: listing::utinput_data
-#+begin_src python :eval never-export
-  @pytest.mark.parametrize("args", invalid_inputs)
-  def test_1(args):
-      assert input_data (*args) == -1
+    @pytest.mark.parametrize(["S0", "r", "sigma", "T", "K", "M",
+    "result"], known_output)
+  def test_6 (S0, r, sigma, T, K, M, result):
+      test_val = compute_binomial_algorithm1_2 (S0, r, sigma, T, K, M)
+      assert abs((test_val - result) / result) < 0.01
+#+end_src 
 
-  @pytest.mark.parametrize("args", arbitrage_cases)  
-  def test_4 (args):                                 
-    assert input_data(*args) == -1     
-      
-  @pytest.mark.parametrize("args", valid_inputs)
-  def test_2(args):
-      assert input_data (*args) == 0
-#+end_src
+For our 4 test cases, the approximation has come within a 1% error of the true value under the Black-Scholes model.
 
-* Question 2 
+* Benchmarking a Binomial Market Model
 
-We are tasked with making a basic path independent binomial model for a European put. We can start by copying our =input_data= function to validate inputs. Turns out we were able to use numpy the whole time.
+In addition to accuracy, we need to consider time efficiency. The CRR approximation theoretically converges around the Black-Scholes model price value as our number of iterations, /M/, increases. However, the current time complexity of the model is $\mathcal{O}(M^2)$. Due to this, if we were to use 10,000 steps, Python needs to make $10 \times 10^8$ operations, which can easily stall the interpreter for seconds. If we were to attempt 1,000,000 iterations, Python would need to make $10 \times 10^{12}$ operations. As we can observe in Figure [[fig::tcbbm]], on a log scale plot, the time complexity grows linearly, since the time complexity is exponential. Consequently, there is a huge trade off between increasing certainty of convergence and time complexity. This becomes an obvious problem if the user needs to calculate multiple European put options to a reasonable level of accuracy. 
 
-* Algorithm
+#+caption: Time Complexity of Basic Binomial Model
+#+name: fig::tcbbm
+[[file:images/Figure_1.png]]
 
+* Towards More Optimal Models
 
+** Single Array Binomial Model
 
-** Optimisations
+If we want to optimise the function, we can begin by optimising memory usage. Since the price of a European option is path-independent, there is no need to store a list of every value the stock could take. Instead, we can optimise our memory by juggling values in a single array rather than an $M \times M$ matrix. \linebreak
 
-To start with, we won't use any lists in
+Suppose we fill up an array of length /M/ with the final payoff values for the European put, in descending order. If we begin a primary loop from the second to last period returning to the first, and a second loop inside iterating from the foremost value to the period the first loop is on, we can calculate the current value of the possible outcome at the time of the first loop by taking the risk neutral measure of the outcome we are on and the next outcome. Since the second loop moves down the array, this does not alter the list in a detrimental way, allowing us to save memory. \linebreak
 
-A major bottleneck to complexity in the model is evaluating the function:
+If we observe Figure [[fig::cbmtp]], we can see that the memory optimised function takes slightly less time than the base binomial model, but they have the same exponential growth rate. While the second model optimises memory use to a single /M/ long array of floats, we still rely on two nested loops. As a result, we have exponential complexity, and the function is still $\mathcal{O}(M^2)$. In practice, since we use a small number of iterations, there is a time gain in the second. This is likely due to lower memory requirements reducing the load on the memory threshold Python 3.13 faces on my laptop. If we were to test at higher values of M, we would observe a convergence in the lines. \linebreak 
 
-\[\begin{pmatrix} M \\ i \end{pmatrix} = \frac{M!}{i!(M-i)!} \]
+#+caption: Comparison of base and memory optimised models
+#+name: fig::cbmtp
+[[file:images/Figure_3.png]]
 
-Which is essentially an $\mathcal{O}(M^2)$ problem since it grows in M. However, we can observe that the distribution of combinations follows Pascal's triangle, so the first value is 1, and the second is /M/. We can also show that the next term in the sequence follows the recursive relation:
+#+caption: Comparison of all three models
+#+name: fig::allmodsp
+[[file:images/Figure_4.png]]
 
-\[f_n \cdot \frac{M-n}{n+1} = f_{n+1} \]
+** Numpy Optimised Binomial Model
 
-Which is linear in M. Since we are calculating a path independent European put, we only have to do the section of the tree where the strike price exceeds the value of the stock, and, further, since the combination function is symmetrical, we only have to calculate a hard maximum of 1/2 of the tree nodes. Simplifying our recursive function to only use addition:
+Unfortunately, there is little we can do to get around the nested loop calculation. Back calculating the binomial tree requires following each node, even if the nodes decrease returning to =S_0=, the gain is negligible as /M/ tends to infinity. However, we can employ the optimised linear algebra methods of the numpy library to gain speed on the direct calculations. For efficiency, we can use the arange function declare a numpy array of length $M+1$ called /j/. This creates a list from 0 to /M/. We can then directly calculate the final period values using /j/, numpy will efficiently create an array with the transformation. For maximal speed on the back calculation, we can take slices of the arrays to save as much memory as possible. We can see the speed gain from the quick algorithm in Figure [[fig::allmodsp]]. Unit testing on the quick algorithm passes in all known test cases, and we can take an experimental average of accuracy. As we can see in Figure [[fig::relacc]], the models have the same accuracy, meaning the speed and memory gain between models comes at little cost.
 
-\[f_{n+1} = \exp(\log (f_n) + \log (M-n) - \log (n+1)) \]
+#+caption: Relative Accuracies
+#+name: fig::relacc
+[[file:images/Figure_5.png]]
 
-List indexing with an address is $\mathcal{O}(1)$ so there are optimisations we can do assigning values at two points in an array for a dynamically programmed sequence.
+* Tilted Trees and Richardson Extrapolation
 
-* Proofs
+Convergence can be irregular on the typical CRR model. To fix this, we can employ a twisted tree, which has the centring calibration:
 
-** Recursive Combination Calculation 
+\[u = e^{\sigma \sqrt{\Delta t} + \frac{1}{M} \log (K / S_0)} \]
+\[d = -e^{-\sigma \sqrt{\Delta t} + \frac{1}{M} \log (K / S_0)} \]
 
-If we consider the function:
+For the twisted tree specifically, it can be shown that:
 
-\[\begin{pmatrix} M \\ i \end{pmatrix} = \frac{M!}{i! (M-i)!} \]
+\[2 P(M)- P(M / 2) = P_{\text{ex}} + \mathcal{O} (M^{-2}) \]
 
-Clearly:
+Where $P(M)$ is the price from a binomial model using the tilted tree calibration and $P_{\text{ex}}$ is the exact price of the put option at time 0. If we observe time complexity of the Richard extrapolation in Figure [[fig::tcre]], we can observe that the approximation has the same gradient as the numpy model rather than the other binomial models. While the extrapolation is extremely fast, the accuracy is lower than the other models. Testing the accuracy again in [[fig::silverwall]], we can see that while the algorithm iis fast, it is not accurate like the other modles, and fits better as an approximation to be made when /M/ becomes tremely 
+ 
+#+caption: Time Complexity of Richardson Extrapolation
+#+name: fig::tcre
+[[file:images/Figure_8.png]]
 
-\[i! = i \times (i-1) \times (i-2) \times \hdots \times 2 \times 1 \]
-\[= \prod^{i-1}_{j=0} (i-j) \]
+#+caption: Accuracy of Richardson Extrapolation
+#+name: fig::silverwall
+[[file:images/Figure_7.png]]
+* Conclusion
 
-And:
+Overall, we have pursued several different algorithms to price European put options. We made a base case algorithm that simply back calculated from the final values. We made a memory efficient version of this, and later a highly optimised version using the numpy package. Finally, we employed the Richardson extrapolation for $\mathcal{O} (M^{-2})$ solutions. However, these models all had their own flaws. Two of the models had exponential $(\mathcal{O} (M^2))$ time efficiency (Figure [[fig::tcre]]), while the best two have an efficiency converging on $(\mathcal{O} (M^-2))$. One of these faster algorithms was slightly more inaccurate than the others (averaging around 0.35% inaccuracy against an average less than 0.2%). Despite this, all of the models performed well enough to not have a tolerance noticeable in any currency with two decimal points. One function that employed numpy linear algebra solving notably outperformed the others on efficiency and accuracy (Figure [[fig::silverwall]]). \linebreak
 
-\[\frac{M!}{(M-i)!} = M \times (M-1) \times (M-2) \times \hdots \times (M-1+2) \times (M-i+1) \]
-\[= \prod^i_{a = 1} (M-i+a) \]
+This function could be optimised further, either by employing the Numbas compiler for Python and numpy, or by employing low level optimisations in a language like C++, but the function is close to peak optimisation in Python alone. Despite this, the speed of the algorithm is still rather slow, and the model cannot price American options at all. Due to this, pursuing avenues like Monte Carlo simulators could prove more efficient, as they could price any manner of exotic option and could potentially out-speed the CRR approximation.
 
-Therefore:
 
-\[\frac{M!}{i!(M-i)!} = \frac{\prod^i_{a=1} (M-i+a)}{\prod^{i-1}_{j=0} (i-j)} \]
 
-We can rewrite the RHS as:
-
-\[ \exp \left(\log \left(\prod^i_{a=1} (M-i+a) \right) - \log 3\left(\prod^{i-1}_{j=0}  (i-j) \right) \right) \]
-
-\[= \exp \left(\sum^i_{a=1} \log (M-i+a) - \sum^{i-1}_{j=0} \log (i-j) \right) \]
-
-We then make the contention that this defines a recurrence relation for functions of i:
-
-\[f_n \cdot \exp \left(\log (M-n) - \log (n+1) \right) = f_{n+1} \]
-
-where;
-
-\[= \exp \left(\sum^n_{a=1} \log (M-n+a) - \sum^{n-1}_{j=0} \log (n-j) \right) \]
-
-This can easily be proven for $n \in \mathbb{N}$. First, consider $i=1$:
-
-\[f_1 \cdot \frac{M-1}{1+1} = f_{1+1} \]
-
-For the first term:
-
-\[f_1 = \exp \left(\sum^1_{a=1} \log (M-1+a) - \sum^0_{j=0} \log (n-j) \right) \]
-
-\[= \exp \left(\log (M) \right) \]
-
-\[f_1 = M \]
-
-For the second term:
-
-\[\exp \left(\log (M-n) - \log(n+1) \right) = \frac{M-1}{1+1} = \frac{M-1}{2} \]
-
-For the third term:
-
-\[f_2 = \exp \left(\sum^2_{a=1} \log(M-2+a) - \sum^1_{j=0} \log (2-j) \right) \]
-
-\[= \exp \left(\log(M-1) + \log (M) - \log{2} \right) \]
-
-\[f_2 = \frac{M(M-1)}{2} \]
-
-Returning these into the original function:
-
-\[f_1 \cdot \frac{M-n}{n+1} = f_2 \]
-
-\[M \cdot \frac{M-1}{2} = \frac{M(M-1)}{2} \]
-
-Which verifies the relation in the case where $n=1$. If we then show that the relation holds between /n/ and $n+1$, then it is proven for all $n \in \mathbb{N}$. Observe that:
-
-\[f_n = \exp \left(\sum^n_{a=1} \log (M-n+a) - \sum^{n-1}_{j=0} \log (n-j) \right) \]
-
-\[f_{n+1} = \exp \left(\sum^{n+1}_{a=1} \log (M-n-1+a) - \sum^n_{j=0} \log (n+1-j) \right) \]
-
-If we then evaluate:
-
-\[f_n \cdot \exp(\log (M-n) - \log (n+1)) \]
-
-\[= \exp \left(\sum^n_{a=1} \log (M-n+a) + \log (M-n) - \sum^n_{j=0} \log (n-j) - \log (n+1) \right) \]
-
-Taking the first sum:
-
-\[\sum^n_{a=1} \log (M-n+a) + \log (M-n) = \log (M-n+1) + \log (M-n+2) + \hdots + \log (M-n+n-1) \]
-\[+ \log(M-n+n) + \log (M-n) \]
-
-\[= \log (M-n) + \log(M-n+1) + \hdots + \log (M-1) + \log (M)  \]
-
-\[= \sum^{n+1}_{a=1} \log (M-n-1+a) \]
-
-Taking the second:
-
-\[\sum^n_{j=0} \log (n-j) + \log (n+1) \]
-
-\[\log (n-0) + \log (n-1) + \hdots + \log (n-n+1) + \log (n-n)  + \log (n+1) \]
-
-\[\log(n+1) + \log (n) + \hdots + \log (1) + \log (0) \]
-
-\[\sum^n_{j=0} \log (n+1-j) \]
-
-Which means that:
-
-\[f_n \cdot \exp \left(\log(M-n) - \log (n+1) \right) \]
-
-\[= \exp \left(\sum^{n+1}_{a=1} \log (M-n-1+a) - \sum^n_{j=0} \log (n+1-j) \right) \]
-
-
-Which, we can notice, is exactly the definition of $f_2. \text{ } \triangle$ 
 
 
 
